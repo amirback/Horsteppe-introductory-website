@@ -1,0 +1,20 @@
+# зависимости и сборка
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# секреты — никогда в git
+.env
+.env.*
+!.env.example
+
+# локальное хранилище заявок для разработки
+.data/
+
+# отчёты проверки
+qa-output/
+
+.DS_Store
+.vercel
