@@ -5,7 +5,7 @@ import { leadsCsv } from "../../lib/csv.ts";
 import { STATUS_LABEL, USE_CASE_LABEL, VOLUME_LABEL } from "../../lib/leads/labels.ts";
 import { STATUSES, USE_CASES, type Lead, type Status } from "../../lib/leads/schema.ts";
 import { CloseIcon } from "../site/Icons.tsx";
-import { LogoMark } from "../site/Logo.tsx";
+import { Emblem } from "../site/Brand.tsx";
 import { DailyChart, leadsWord, type Day } from "./DailyChart.tsx";
 
 type Period = "all" | "30" | "7" | "today";
@@ -205,52 +205,53 @@ export function Dashboard() {
   }
 
   const opened = leads?.find((l) => l.id === openId) ?? null;
-  const select = "rounded-xl border border-ink/15 bg-white/80 px-3 py-2.5 text-[14px] text-ink outline-none focus:border-ink";
+  // 16 px в полях: на iPhone и iPad поле мельче увеличивает страницу при фокусе.
+  const select = "field w-auto py-2 text-base";
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-ink/8 bg-paper/90 backdrop-blur-xl">
-        <div className="container-x flex h-16 items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 border-b border-ink/12 bg-parchment/90 backdrop-blur-xl">
+        <div className="shell flex h-16 items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <LogoMark className="h-8 w-8" />
-            <span className="font-display text-[17px] font-bold tracking-[-0.01em]">Заявки</span>
+            <Emblem className="h-8 w-auto" sizes="48px" priority />
+            <span className="font-serif text-[1.5rem] font-semibold leading-none text-pine">Заявки</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={downloadCsv} disabled={!filtered.length} className="hidden rounded-full border border-ink/15 px-4 py-2 text-[13.5px] font-semibold text-ink hover:border-ink/40 disabled:opacity-40 sm:inline-flex">
+            <button onClick={downloadCsv} disabled={!filtered.length} className="btn btn-line hidden min-h-10 px-4 py-2 text-[0.875rem] disabled:opacity-40 sm:inline-flex">
               Скачать CSV
             </button>
-            <button onClick={() => setSheetsOpen(true)} disabled={!sheetsUrl} className="hidden rounded-full border border-ink/15 px-4 py-2 text-[13.5px] font-semibold text-ink hover:border-ink/40 disabled:opacity-40 sm:inline-flex">
+            <button onClick={() => setSheetsOpen(true)} disabled={!sheetsUrl} className="btn btn-line hidden min-h-10 px-4 py-2 text-[0.875rem] disabled:opacity-40 sm:inline-flex">
               Google Таблица
             </button>
-            <button onClick={logout} className="rounded-full px-3 py-2 text-[13.5px] font-semibold text-ink-mute hover:text-ink">
+            <button onClick={logout} className="inline-flex min-h-10 items-center rounded-[0.25rem] px-3 py-2 text-[0.875rem] font-semibold text-ink-mute hover:text-ink">
               Выйти
             </button>
           </div>
         </div>
       </header>
 
-      <main className="container-x py-8 md:py-10">
+      <main className="shell py-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:py-10">
         {storage === "file" ? (
-          <p className="mb-6 rounded-xl border border-olive/40 bg-pale/50 px-4 py-3 text-[14px] text-ink-soft">
+          <p className="mb-6 rounded-[0.25rem] border border-leaf-2/40 bg-sand/50 px-4 py-3 text-[0.875rem] text-ink-soft">
             Локальное хранилище для разработки: заявки лежат в файле на этом компьютере, не в Supabase.
           </p>
         ) : null}
 
         {error ? (
-          <p role="alert" className="mb-6 rounded-xl border border-ember/40 bg-ember/8 px-4 py-3 text-[14.5px] text-ember">
+          <p role="alert" className="mb-6 rounded-[0.25rem] border border-ember/40 bg-ember/[0.07] px-4 py-3 text-[0.9375rem] text-ember">
             {error}
           </p>
         ) : null}
 
-        {/* Фильтры — одним рядом над всем, что они определяют. */}
+        {/* Фильтры — одним рядом над всем, что они определяют. На телефоне: период, статус и язык парой, задача, поиск. */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <div className="col-span-2 flex rounded-xl border border-ink/15 bg-white/70 p-1 sm:col-span-1" role="group" aria-label="Период">
+          <div className="col-span-2 flex rounded-[0.25rem] border border-ink/20 bg-white p-1 sm:col-span-1" role="group" aria-label="Период">
             {PERIODS.map((p) => (
               <button
                 key={p.value}
                 onClick={() => setPeriod(p.value)}
                 aria-pressed={period === p.value}
-                className={`flex-1 rounded-lg px-3 py-1.5 text-[13.5px] font-semibold transition sm:flex-none ${
+                className={`min-h-9 flex-auto whitespace-nowrap rounded-[0.1875rem] px-2 py-1.5 text-[0.84375rem] font-semibold transition sm:flex-none sm:px-3 ${
                   period === p.value ? "bg-ink text-cream" : "text-ink-soft hover:text-ink"
                 }`}
               >
@@ -266,6 +267,12 @@ export function Dashboard() {
               </option>
             ))}
           </select>
+          <select aria-label="Язык" value={lang} onChange={(e) => setLang(e.target.value)} className={select}>
+            <option value="all">Все языки</option>
+            <option value="ru">Русский</option>
+            <option value="kk">Қазақша</option>
+            <option value="en">English</option>
+          </select>
           <select aria-label="Задача" value={useCase} onChange={(e) => setUseCase(e.target.value)} className={`${select} col-span-2 sm:col-span-1`}>
             <option value="all">Все задачи</option>
             {USE_CASES.map((u) => (
@@ -273,12 +280,6 @@ export function Dashboard() {
                 {USE_CASE_LABEL[u]}
               </option>
             ))}
-          </select>
-          <select aria-label="Язык" value={lang} onChange={(e) => setLang(e.target.value)} className={select}>
-            <option value="all">Все языки</option>
-            <option value="ru">Русский</option>
-            <option value="kk">Қазақша</option>
-            <option value="en">English</option>
           </select>
           <input
             type="search"
@@ -298,9 +299,9 @@ export function Dashboard() {
               { label: "В работе", value: stats.working },
               { label: "Стали клиентами", value: stats.clients },
             ].map((tile) => (
-              <div key={tile.label} className="rounded-[20px] border border-ink/10 bg-card px-5 py-4">
-                <dt className="text-[13px] text-ink-mute">{tile.label}</dt>
-                <dd className="mt-1 font-sans text-[30px] font-semibold tracking-[-0.02em] text-ink">{tile.value}</dd>
+              <div key={tile.label} className="rounded-[0.375rem] border border-ink/12 bg-vellum px-5 py-4">
+                <dt className="text-[0.8125rem] text-ink-mute">{tile.label}</dt>
+                <dd className="mt-2 font-serif text-[2.5rem] font-semibold leading-none text-pine [font-variant-numeric:lining-nums]">{tile.value}</dd>
               </div>
             ))}
           </dl>
@@ -313,9 +314,9 @@ export function Dashboard() {
 
           <section className="mt-6" aria-label="Заявки">
             {leads === null && !error ? (
-              <div className="h-40 animate-pulse rounded-[20px] bg-ink/5" />
+              <div className="h-40 animate-pulse rounded-[0.375rem] bg-ink/5" />
             ) : filtered.length === 0 ? (
-              <p className="rounded-[20px] border border-ink/10 bg-card px-6 py-12 text-center text-[15px] text-ink-mute">
+              <p className="rounded-[0.375rem] border border-ink/12 bg-vellum px-6 py-12 text-center text-[0.9375rem] text-ink-mute">
                 {leads?.length ? "По этим фильтрам заявок нет." : "Заявок пока нет. Они появятся здесь сразу после отправки формы на сайте."}
               </p>
             ) : (
@@ -324,7 +325,7 @@ export function Dashboard() {
                 <ul className="grid gap-3 md:hidden">
                   {filtered.map((l) => (
                     <li key={l.id}>
-                      <button onClick={() => setOpenId(l.id)} className="w-full rounded-[18px] border border-ink/10 bg-card p-4 text-left">
+                      <button onClick={() => setOpenId(l.id)} className="w-full rounded-[0.375rem] border border-ink/12 bg-vellum p-4 text-left">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="truncate text-[15px] font-semibold text-ink">{l.name}</div>
@@ -340,7 +341,7 @@ export function Dashboard() {
                   ))}
                 </ul>
 
-                <div className="hidden overflow-x-auto rounded-[20px] border border-ink/10 bg-card md:block">
+                <div className="hidden overflow-x-auto rounded-[0.375rem] border border-ink/12 bg-vellum md:block">
                   <table className="w-full text-left text-[14px]">
                     <thead className="border-b border-ink/10 text-[12.5px] text-ink-mute">
                       <tr>
@@ -354,14 +355,14 @@ export function Dashboard() {
                     </thead>
                     <tbody>
                       {filtered.map((l) => (
-                        <tr key={l.id} className="border-t border-ink/8 align-top hover:bg-paper/70">
+                        <tr key={l.id} className="border-t border-ink/8 align-top hover:bg-parchment/70">
                           <td className="whitespace-nowrap px-4 py-3 tabular-nums text-ink-soft">{stamp.format(new Date(l.created_at))}</td>
                           <td className="px-4 py-3">
                             <button onClick={() => setOpenId(l.id)} className="text-left font-semibold text-ink underline-offset-4 hover:underline">
                               {l.name}
                             </button>
                             {l.company ? <div className="text-[13px] text-ink-mute">{l.company}</div> : null}
-                            {l.submit_count > 1 ? <div className="text-[12px] text-sage">повторная · {l.submit_count}×</div> : null}
+                            {l.submit_count > 1 ? <div className="text-[0.75rem] text-leaf">повторная · {l.submit_count}×</div> : null}
                           </td>
                           <td className="px-4 py-3">
                             <a href={`mailto:${l.email}`} className="text-ink hover:underline">
@@ -384,7 +385,7 @@ export function Dashboard() {
                               aria-label={`Статус заявки ${l.name}`}
                               value={l.status}
                               onChange={(e) => patch(l.id, { status: e.target.value as Status })}
-                              className="rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-[13.5px] text-ink outline-none focus:border-ink"
+                              className="field w-auto py-1.5 pl-2.5 text-base"
                             >
                               {STATUSES.map((s) => (
                                 <option key={s} value={s}>
@@ -407,10 +408,10 @@ export function Dashboard() {
           </section>
 
           <div className="mt-6 flex gap-2 sm:hidden">
-            <button onClick={downloadCsv} disabled={!filtered.length} className="flex-1 rounded-full border border-ink/15 px-4 py-3 text-[14px] font-semibold disabled:opacity-40">
+            <button onClick={downloadCsv} disabled={!filtered.length} className="btn btn-line flex-1 disabled:opacity-40">
               Скачать CSV
             </button>
-            <button onClick={() => setSheetsOpen(true)} disabled={!sheetsUrl} className="flex-1 rounded-full border border-ink/15 px-4 py-3 text-[14px] font-semibold disabled:opacity-40">
+            <button onClick={() => setSheetsOpen(true)} disabled={!sheetsUrl} className="btn btn-line flex-1 disabled:opacity-40">
               Google Таблица
             </button>
           </div>
@@ -420,7 +421,7 @@ export function Dashboard() {
       {opened ? <LeadPanel lead={opened} onClose={() => setOpenId(null)} onPatch={patch} onDelete={remove} /> : null}
       {sheetsOpen && sheetsUrl ? <SheetsDialog url={sheetsUrl} onClose={() => setSheetsOpen(false)} /> : null}
       {toast ? (
-        <div role="status" className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-5 py-2.5 text-[14px] text-cream shadow-lg">
+        <div role="status" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-[0.25rem] bg-pine px-5 py-2.5 text-[0.875rem] text-parchment shadow-lg">
           {toast}
         </div>
       ) : null}
@@ -431,8 +432,8 @@ export function Dashboard() {
 /** Статус — словом. Цветом выделена только «Новая»: это то, что ждёт ответа. */
 function StatusBadge({ status }: { status: Status }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/12 bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-ink-soft">
-      {status === "new" ? <span className="h-1.5 w-1.5 rounded-full bg-sage" aria-hidden /> : null}
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-[0.1875rem] border border-ink/15 bg-white px-2.5 py-1 text-[0.75rem] font-semibold text-ink-soft">
+      {status === "new" ? <span className="h-1.5 w-1.5 rounded-full bg-leaf" aria-hidden /> : null}
       {STATUS_LABEL[status]}
     </span>
   );
@@ -470,25 +471,25 @@ function LeadPanel({ lead, onClose, onPatch, onDelete }: {
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <button className="absolute inset-0 bg-forest/30 backdrop-blur-[2px]" aria-label="Закрыть" onClick={onClose} />
-      <aside role="dialog" aria-modal="true" aria-label={`Заявка: ${lead.name}`} className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-paper shadow-2xl">
+      <button className="absolute inset-0 bg-night/40 backdrop-blur-[2px]" aria-label="Закрыть" onClick={onClose} />
+      <aside role="dialog" aria-modal="true" aria-label={`Заявка: ${lead.name}`} className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-parchment pb-[env(safe-area-inset-bottom)] shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-ink/10 px-6 py-5">
           <div className="min-w-0">
-            <h2 className="font-display truncate text-[22px] font-bold tracking-[-0.01em] text-ink">{lead.name}</h2>
+            <h2 className="truncate font-serif text-[1.75rem] font-semibold leading-tight text-pine">{lead.name}</h2>
             <p className="text-[13px] text-ink-mute">{stamp.format(new Date(lead.created_at))}</p>
           </div>
-          <button ref={closeRef} onClick={onClose} className="rounded-full p-2 text-ink-mute hover:text-ink" aria-label="Закрыть">
+          <button ref={closeRef} onClick={onClose} className="rounded-[0.25rem] p-2 text-ink-mute hover:text-ink" aria-label="Закрыть">
             <CloseIcon />
           </button>
         </div>
 
         <div className="flex-1 px-6 py-5">
           <div className="flex flex-wrap gap-2">
-            <a href={`mailto:${lead.email}`} className="rounded-full bg-ink px-4 py-2 text-[13.5px] font-semibold text-cream hover:bg-moss">
+            <a href={`mailto:${lead.email}`} className="btn btn-primary min-h-10 px-4 py-2 text-[0.875rem]">
               Написать письмо
             </a>
             {links.map((link) => (
-              <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className="rounded-full border border-ink/15 px-4 py-2 text-[13.5px] font-semibold text-ink hover:border-ink/40">
+              <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className="btn btn-line min-h-10 px-4 py-2 text-[0.875rem]">
                 {link.label}
               </a>
             ))}
@@ -499,7 +500,7 @@ function LeadPanel({ lead, onClose, onPatch, onDelete }: {
             <select
               value={lead.status}
               onChange={(e) => onPatch(lead.id, { status: e.target.value as Status })}
-              className="mt-1.5 w-full rounded-xl border border-ink/15 bg-white/80 px-3 py-2.5 text-[14.5px] text-ink outline-none focus:border-ink"
+              className="field mt-1.5 text-base"
             >
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -528,7 +529,7 @@ function LeadPanel({ lead, onClose, onPatch, onDelete }: {
           {lead.message ? (
             <div className="mt-6">
               <div className="text-[13px] font-semibold text-ink">Сообщение</div>
-              <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-ink/10 bg-card px-4 py-3 text-[14.5px] leading-relaxed text-ink-soft">{lead.message}</p>
+              <p className="mt-1.5 whitespace-pre-wrap rounded-[0.25rem] border border-ink/12 bg-vellum px-4 py-3 text-[0.9375rem] leading-relaxed text-ink-soft">{lead.message}</p>
             </div>
           ) : null}
 
@@ -540,13 +541,13 @@ function LeadPanel({ lead, onClose, onPatch, onDelete }: {
               rows={4}
               maxLength={2000}
               placeholder="Созвонились, ждём фото товара…"
-              className="mt-1.5 w-full resize-y rounded-xl border border-ink/15 bg-white/80 px-4 py-3 text-[14.5px] text-ink outline-none focus:border-ink"
+              className="field mt-1.5 resize-y text-base"
             />
           </label>
           <button
             onClick={() => onPatch(lead.id, { admin_note: note.trim() || null })}
             disabled={(note.trim() || null) === (lead.admin_note ?? null)}
-            className="mt-2 rounded-full bg-ink px-5 py-2.5 text-[13.5px] font-semibold text-cream hover:bg-moss disabled:opacity-40"
+            className="btn btn-primary mt-2 min-h-10 px-5 py-2 text-[0.875rem] disabled:opacity-40"
           >
             Сохранить заметку
           </button>
@@ -578,11 +579,11 @@ function SheetsDialog({ url, onClose }: { url: string; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <button className="absolute inset-0 bg-forest/30 backdrop-blur-[2px]" aria-label="Закрыть" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Google Таблица" className="relative w-full max-w-lg rounded-[24px] bg-paper p-6 shadow-2xl sm:p-7">
+      <button className="absolute inset-0 bg-night/40 backdrop-blur-[2px]" aria-label="Закрыть" onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-label="Google Таблица" className="relative w-full max-w-lg rounded-[0.5rem] border border-ink/12 bg-parchment p-6 shadow-2xl sm:p-7">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="font-display text-[21px] font-bold tracking-[-0.01em] text-ink">Заявки в Google Таблице</h2>
-          <button onClick={onClose} className="rounded-full p-1.5 text-ink-mute hover:text-ink" aria-label="Закрыть">
+          <h2 className="font-serif text-[1.75rem] font-semibold leading-tight text-pine">Заявки в Google Таблице</h2>
+          <button onClick={onClose} className="rounded-[0.25rem] p-1.5 text-ink-mute hover:text-ink" aria-label="Закрыть">
             <CloseIcon />
           </button>
         </div>
@@ -591,8 +592,8 @@ function SheetsDialog({ url, onClose }: { url: string; onClose: () => void }) {
           <li>Вставьте формулу ниже в ячейку A1 и нажмите Enter.</li>
           <li>Таблица заполнится сама и будет обновляться примерно раз в час.</li>
         </ol>
-        <div className="mt-4 break-all rounded-xl border border-ink/12 bg-card px-4 py-3 font-mono text-[12.5px] text-ink">{formula}</div>
-        <button onClick={copy} className="mt-3 rounded-full bg-ink px-5 py-2.5 text-[14px] font-semibold text-cream hover:bg-moss">
+        <div className="mt-4 break-all rounded-[0.25rem] border border-ink/15 bg-vellum px-4 py-3 font-mono text-[0.78125rem] text-ink">{formula}</div>
+        <button onClick={copy} className="btn btn-primary mt-3 min-h-10 px-5 py-2 text-[0.875rem]">
           {copied ? "Скопировано" : "Скопировать формулу"}
         </button>
         <p className="mt-4 text-[13px] leading-relaxed text-ink-mute">

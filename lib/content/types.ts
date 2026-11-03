@@ -12,10 +12,19 @@ export type SiteDict = {
     features: string; how: string; useCases: string; faq: string;
     signIn: string; cta: string; menu: string; close: string; skip: string; language: string;
   };
-  hero: { kicker: string; title: string; sub: string; primary: string; secondary: string; proof: string[] };
+  hero: {
+    kicker: string; title: string;
+    /** Часть заголовка, выделенная курсивом золотом. Обязана быть подстрокой title (проверяет тест). */
+    accent: string;
+    sub: string; primary: string; secondary: string; proof: string[];
+  };
+  /** Цифры под первым экраном — только проверенные по коду продукта и словам основателя. */
+  stats: { label: string; items: { value: string; text: string }[] };
   demo: {
     label: string; prompt: string; steps: string[]; timeline: string;
     real: string; camera: string; done: string; file: string;
+    /** Субтитр в превью ролика — фраза из описания. */
+    caption: string;
   };
   contrast: {
     kicker: string; title: string; sub: string;

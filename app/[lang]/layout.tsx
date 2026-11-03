@@ -1,14 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Montserrat } from "next/font/google";
 import { notFound } from "next/navigation";
 import "../globals.css";
 import { RevealObserver } from "../../components/site/RevealObserver.tsx";
 import { content } from "../../lib/content/index.ts";
+import { fontClasses } from "../../lib/fonts.ts";
 import { LOCALES, LOCALE_META, isLang } from "../../lib/i18n.ts";
 import { siteUrl } from "../../lib/site.ts";
-
-const montserrat = Montserrat({ subsets: ["latin", "cyrillic"], variable: "--font-montserrat", display: "swap" });
-const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-body", display: "swap" });
 
 // Только три языка; всё остальное — честный 404, а не пустая страница.
 export const dynamicParams = false;
@@ -37,7 +34,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   };
 }
 
-export const viewport: Viewport = { themeColor: "#f7f6e9", colorScheme: "light" };
+// viewportFit: cover — в горизонтальном телефоне фон идёт под вырез камеры, текст — нет (см. .shell).
+export const viewport: Viewport = { themeColor: "#f5f1e6", colorScheme: "light", viewportFit: "cover" };
 
 /**
  * Класс .js ставится до отрисовки: только тогда блоки ниже первого экрана
@@ -52,11 +50,11 @@ export default async function SiteLayout({ children, params }: { children: React
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   return (
-    <html lang={LOCALE_META[lang].htmlLang} className={`${montserrat.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang={LOCALE_META[lang].htmlLang} className={fontClasses} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
-      <body className="min-h-screen bg-paper text-ink antialiased">
+      <body className="min-h-screen bg-parchment text-ink antialiased">
         {children}
         <RevealObserver />
       </body>

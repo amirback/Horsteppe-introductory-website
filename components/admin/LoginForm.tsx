@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogoMark } from "../site/Logo.tsx";
+import { Emblem } from "../site/Brand.tsx";
 
 const ERRORS: Record<string, string> = {
   wrong_password: "Неверный пароль.",
@@ -43,14 +43,15 @@ export function LoginForm() {
   }
 
   return (
-    <main className="glow flex min-h-[100svh] items-center justify-center px-5">
-      <form onSubmit={onSubmit} className="w-full max-w-sm rounded-[28px] border border-ink/10 bg-card p-7 shadow-[0_30px_60px_-40px_rgba(22,52,26,0.5)] sm:p-8">
-        <LogoMark className="h-10 w-10" />
-        <h1 className="font-display mt-6 text-[26px] font-bold tracking-[-0.02em] text-ink">Заявки Horsteppe</h1>
-        <p className="mt-2 text-[14.5px] leading-relaxed text-ink-soft">Вход для администратора.</p>
+    <main className="relative isolate flex min-h-[100svh] items-center justify-center px-5 py-10">
+      <div aria-hidden className="hatch pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(60%_60%_at_50%_40%,#000,transparent)]" />
+      <form onSubmit={onSubmit} className="w-full max-w-sm rounded-[0.5rem] border border-ink/15 bg-vellum p-7 shadow-[0_30px_60px_-40px_rgba(28,43,27,0.5)] sm:p-8">
+        <Emblem className="h-auto w-20" sizes="80px" priority />
+        <h1 className="mt-6 font-serif text-[2rem] font-semibold leading-tight text-pine">Заявки Horsteppe</h1>
+        <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-soft">Вход для администратора.</p>
 
         <label className="mt-7 block">
-          <span className="text-[14px] font-semibold text-ink">Пароль</span>
+          <span className="text-[0.875rem] font-semibold text-pine">Пароль</span>
           <div className="relative mt-1.5">
             <input
               type={show ? "text" : "password"}
@@ -60,12 +61,12 @@ export function LoginForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-ink/15 bg-white/80 px-4 py-3 pr-24 text-[15.5px] text-ink outline-none focus:border-ink focus:bg-white"
+              className="field pr-24 text-base"
             />
             <button
               type="button"
               onClick={() => setShow((v) => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-ink-mute hover:text-ink"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-[0.1875rem] px-3 py-1.5 text-[0.8125rem] font-semibold text-ink-mute hover:text-ink"
               aria-pressed={show}
             >
               {show ? "Скрыть" : "Показать"}
@@ -74,7 +75,7 @@ export function LoginForm() {
         </label>
 
         {error ? (
-          <p role="alert" className="mt-4 rounded-xl border border-ember/40 bg-ember/8 px-4 py-3 text-[14px] text-ember">
+          <p role="alert" className="mt-4 rounded-[0.25rem] border border-ember/40 bg-ember/[0.07] px-4 py-3 text-[0.875rem] text-ember">
             {error}
           </p>
         ) : null}
@@ -82,7 +83,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={busy || !password}
-          className="mt-6 w-full rounded-full bg-ink px-6 py-3.5 text-[15.5px] font-semibold text-cream transition hover:bg-moss disabled:opacity-60"
+          className="btn btn-primary mt-6 w-full"
         >
           {busy ? "Проверяем…" : "Войти"}
         </button>

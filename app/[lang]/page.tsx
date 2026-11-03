@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { EarlyAccess } from "../../components/site/EarlyAccess.tsx";
 import { Footer } from "../../components/site/Footer.tsx";
 import { Header } from "../../components/site/Header.tsx";
-import { Contrast, Faq, Features, FinalCta, Hero, HowItWorks, UseCases } from "../../components/site/Sections.tsx";
+import { Contrast, Faq, Features, FinalCta, Hero, HowItWorks, Stats, UseCases } from "../../components/site/Sections.tsx";
 import { content } from "../../lib/content/index.ts";
 import { LOCALES, isLang } from "../../lib/i18n.ts";
 import { APP_URL, CONTACT_EMAIL, siteUrl } from "../../lib/site.ts";
@@ -51,9 +51,10 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
       <Header lang={lang} t={t.nav} appUrl={APP_URL} />
       <main id="main">
         <Hero t={t.hero} demo={t.demo} />
+        <Stats t={t.stats} />
+        <HowItWorks t={t.how} demo={t.demo} />
         <Contrast t={t.contrast} />
-        <HowItWorks t={t.how} />
-        <Features t={t.features} />
+        <Features t={t.features} demo={t.demo} />
         <UseCases t={t.useCases} lang={lang} />
         <EarlyAccess lang={lang} t={t.access} />
         <Faq t={t.faq} email={CONTACT_EMAIL} />

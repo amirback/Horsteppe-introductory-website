@@ -24,8 +24,9 @@ function niceMax(max: number): number {
 
 /**
  * Заявки по дням — один ряд, поэтому без легенды: заголовок говорит, что
- * нарисовано. Цвет столбца — sage бренда, проверен скриптом палитры на фоне
- * карточки (#fbfaf1): светлота, насыщенность и контраст 3:1 проходят.
+ * нарисовано. Цвет столбца — дубовый лист с логотипа, чуть насыщеннее (#5d7a2c):
+ * исходный #5c6e38 скрипт палитры счёл серым. На фоне карточки (#fbf9f2)
+ * светлота, насыщенность и контраст 3:1 проходят; подсветка #6b8a2c — тоже.
  *
  * Столбец не шире 16 px и растёт от общей базы, скругление — только сверху.
  * Значение — в подсказке при наведении и при фокусе (стрелки ← →), а все
@@ -55,7 +56,7 @@ export function DailyChart({ days, title }: { days: Day[]; title: string }) {
   }
 
   return (
-    <figure className="rounded-[22px] border border-ink/10 bg-card p-5 sm:p-6">
+    <figure className="rounded-[0.375rem] border border-ink/12 bg-vellum p-5 sm:p-6">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-[15px] font-semibold text-ink">{title}</span>
         <span className="text-[13px] text-ink-mute">
@@ -95,7 +96,7 @@ export function DailyChart({ days, title }: { days: Day[]; title: string }) {
                   className="w-full max-w-4 rounded-t-[4px] transition-[background-color] duration-150"
                   style={{
                     height: `${(day.count / max) * 100}%`,
-                    backgroundColor: active === i ? "#86a45a" : "#6d8c3e",
+                    backgroundColor: active === i ? "#6b8a2c" : "#5d7a2c",
                   }}
                 />
               ) : null}
@@ -105,7 +106,7 @@ export function DailyChart({ days, title }: { days: Day[]; title: string }) {
 
         {current ? (
           <div
-            className="pointer-events-none absolute -top-3 z-10 -translate-x-1/2 rounded-xl border border-ink/10 bg-white px-3 py-2 shadow-[0_10px_24px_-12px_rgba(22,52,26,0.35)]"
+            className="pointer-events-none absolute -top-3 z-10 -translate-x-1/2 rounded-[0.25rem] border border-ink/12 bg-white px-3 py-2 shadow-[0_10px_24px_-12px_rgba(28,43,27,0.35)]"
             style={{ left: `calc(2rem + (100% - 2rem) * ${(active! + 0.5) / days.length})` }}
             role="status"
           >

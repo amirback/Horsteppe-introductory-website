@@ -129,21 +129,21 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
 
   if (status === "done") {
     return (
-      <div className="flex min-h-[420px] flex-col items-start justify-center" role="status">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-forest text-lime">
+      <div className="flex min-h-[26rem] flex-col items-start justify-center" role="status">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-pine text-gold">
           <CheckIcon className="h-6 w-6" />
         </span>
-        <h3 ref={doneRef} tabIndex={-1} className="font-display mt-6 text-[28px] font-bold tracking-[-0.02em] text-ink outline-none">
+        <h3 ref={doneRef} tabIndex={-1} className="display mt-6 text-[2.25rem] text-pine outline-none">
           {t.successTitle}
         </h3>
-        <p className="mt-3 max-w-md text-[16px] leading-relaxed text-ink-soft">{t.successText.replace("{email}", sentTo)}</p>
+        <p className="mt-3 max-w-md text-pretty text-[1rem] leading-relaxed text-ink-soft">{t.successText.replace("{email}", sentTo)}</p>
         <button
           type="button"
           onClick={() => {
             setStatus("idle");
             started.current = Date.now();
           }}
-          className="mt-8 text-[14.5px] font-semibold text-sage underline-offset-4 hover:underline"
+          className="link-line mt-8 py-1 text-[0.9375rem] font-semibold text-oak"
         >
           {t.again}
         </button>
@@ -151,21 +151,18 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
     );
   }
 
-  const input =
-    "mt-1.5 w-full rounded-xl border bg-white/80 px-4 py-3 text-[15.5px] text-ink outline-none transition placeholder:text-ink-mute/60 focus:border-ink focus:bg-white";
-  const ok = "border-ink/15";
-  const bad = "border-ember";
-  const label = "text-[14px] font-semibold text-ink";
+  // 16 px в полях — иначе iOS увеличивает страницу при вводе. Красная рамка ошибки — по aria-invalid (см. .field).
+  const input = "field mt-1.5 text-base";
   // Название поля слева, «необязательно» — справа в той же строке: так пометка не отрывается.
   const head = (text: string, isOptional = false) => (
     <span className="flex items-baseline justify-between gap-3">
-      <span className={label}>{text}</span>
-      {isOptional ? <span className="shrink-0 text-[12px] text-ink-mute">{t.optional}</span> : null}
+      <span className="text-[0.875rem] font-semibold text-pine">{text}</span>
+      {isOptional ? <span className="shrink-0 text-[0.75rem] text-ink-mute">{t.optional}</span> : null}
     </span>
   );
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-4" aria-busy={status === "sending"}>
+    <form onSubmit={onSubmit} noValidate className="grid gap-5" aria-busy={status === "sending"}>
       {/* Ловушка для ботов: человек её не видит и не заполняет. */}
       <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden>
         <label>
@@ -180,7 +177,7 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
           <input
             name="name" required maxLength={100} autoComplete="name"
             aria-invalid={invalid === "name" || undefined}
-            className={`${input} ${invalid === "name" ? bad : ok}`}
+            className={input}
           />
         </label>
         <label className="block">
@@ -188,7 +185,7 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
           <input
             name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email"
             aria-invalid={invalid === "email" || undefined}
-            className={`${input} ${invalid === "email" ? bad : ok}`}
+            className={input}
           />
         </label>
       </div>
@@ -196,18 +193,18 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           {head(t.contact, true)}
-          <input name="contact" maxLength={100} autoComplete="tel" placeholder={t.contactHint} className={`${input} ${ok}`} />
+          <input name="contact" maxLength={100} autoComplete="tel" placeholder={t.contactHint} className={input} />
         </label>
         <label className="block">
           {head(t.company, true)}
-          <input name="company" maxLength={120} autoComplete="organization" className={`${input} ${ok}`} />
+          <input name="company" maxLength={120} autoComplete="organization" className={input} />
         </label>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           {head(t.useCase, true)}
-          <select name="use_case" defaultValue="" className={`${input} ${ok}`}>
+          <select name="use_case" defaultValue="" className={input}>
             <option value="">{t.choose}</option>
             {USE_CASES.map((value) => (
               <option key={value} value={value}>
@@ -218,7 +215,7 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
         </label>
         <label className="block">
           {head(t.volume, true)}
-          <select name="volume" defaultValue="" className={`${input} ${ok}`}>
+          <select name="volume" defaultValue="" className={input}>
             <option value="">{t.choose}</option>
             {VOLUMES.map((value) => (
               <option key={value} value={value}>
@@ -231,18 +228,18 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
 
       <label className="block">
         {head(t.message, true)}
-        <textarea name="message" rows={3} maxLength={1500} placeholder={t.messagePlaceholder} className={`${input} ${ok} resize-y`} />
+        <textarea name="message" rows={3} maxLength={1500} placeholder={t.messagePlaceholder} className={`${input} resize-y`} />
       </label>
 
-      <label className="flex items-start gap-3 text-[14px] leading-snug text-ink-soft">
+      <label className="flex items-start gap-3 text-[0.875rem] leading-snug text-ink-soft">
         <input
           name="consent" type="checkbox"
           aria-invalid={invalid === "consent" || undefined}
-          className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-ink)]"
+          className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-pine)]"
         />
         <span>
           {t.consentBefore}{" "}
-          <a href={privacyHref} className="font-semibold text-ink underline underline-offset-4 hover:text-sage">
+          <a href={privacyHref} className="font-semibold text-pine underline decoration-pine/40 underline-offset-4 hover:decoration-pine">
             {t.consentLink}
           </a>
           {t.consentAfter}
@@ -250,7 +247,7 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
       </label>
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-ember/40 bg-ember/8 px-4 py-3 text-[14.5px] text-ember">
+        <p role="alert" className="rounded-[0.25rem] border border-ember/40 bg-ember/[0.07] px-4 py-3 text-[0.9375rem] text-ember">
           {error}
         </p>
       ) : null}
@@ -258,10 +255,10 @@ export function LeadForm({ lang, t, privacyHref }: { lang: Lang; t: Form; privac
       <button
         type="submit"
         disabled={status === "sending"}
-        className="group mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[16px] font-semibold text-cream transition hover:bg-moss disabled:opacity-70"
+        className="btn btn-primary mt-1 min-h-14 w-full text-base"
       >
         {status === "sending" ? t.sending : t.submit}
-        {status === "sending" ? null : <ArrowIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
+        {status === "sending" ? null : <ArrowIcon className="arrow h-4 w-4" />}
       </button>
     </form>
   );

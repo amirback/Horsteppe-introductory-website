@@ -21,13 +21,24 @@ export const en: SiteDict = {
   hero: {
     kicker: "AI video director and editor",
     title: "Describe the video. Get a finished MP4.",
+    accent: "Get a finished MP4.",
     sub:
       "Horsteppe writes the script, plans the shots, generates real AI video for the key scenes, records the voice, burns in subtitles and edits it all together. All that's left is to post it.",
     primary: "Get early access",
     secondary: "How it works",
-    proof: ["10+ clients already get their videos", "Startup Orda 2 accelerator", "Reels · Shorts · TikTok · YouTube"],
+    proof: ["Startup Orda 2 accelerator", "Reels · Shorts · TikTok · YouTube"],
+  },
+  stats: {
+    label: "Horsteppe in numbers",
+    items: [
+      { value: "10+", text: "clients already get their videos" },
+      { value: "6–15", text: "distinct shots in a 30-second video" },
+      { value: "15–60", text: "seconds — the length of a finished video" },
+      { value: "3", text: "formats: 9:16, 16:9 and 1:1" },
+    ],
   },
   demo: {
+    caption: "Keeps drinks cold for 12 hours",
     label: "Video brief",
     prompt: "An ad for a steel bottle: keeps drinks cold for 12 hours, light, made for students",
     steps: ["Script", "Storyboard", "AI video", "Voice", "Subtitles", "Edit"],
