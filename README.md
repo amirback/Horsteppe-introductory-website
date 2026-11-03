@@ -13,7 +13,8 @@
 
 ## Как устроено
 
-- **Next.js 15 + React 19 + Tailwind 4** — тот же стек и фирменный стиль, что у продукта.
+- **Next.js 15 + React 19 + Tailwind 4** — тот же стек, что у продукта. Оформление своё: логотип-гравюра
+  основателя, палитра с него, EB Garamond + Inter (подробности — [docs/BRIEF.md](docs/BRIEF.md)).
 - **Заявки** — таблица `intro_leads` в Supabase проекта Horsteppe ([supabase/intro_leads.sql](supabase/intro_leads.sql)).
   Таблицы закрыты для браузера; пишет и читает только сервер сайта.
 - **Форма:** проверка полей, ловушка для ботов, лимит частоты (5 заявок в час с адреса, 300 в час всего),
@@ -33,5 +34,6 @@ npm install
 npm run dev          # http://localhost:3000 — без ключей заявки пишутся в .data/
 npm test             # логика: заявка, CSV, сессия, лимиты, хранилища
 npm run build
-npm run qa           # Chrome без окна: 3 языка × телефон и ноутбук, форма, админка, скриншоты в qa-output/
+npm run qa           # Chrome без окна: 3 языка × 16 экранов от 320 до 2560 px, форма, админка, скриншоты в qa-output/
+node scripts/brand/make-assets.mjs   # пересобрать иконки и картинку для соцсетей из public/brand/
 ```

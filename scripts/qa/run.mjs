@@ -3,8 +3,9 @@
  *
  * Поднимает `next start` с файловым хранилищем во временной папке (без
  * Supabase, без Telegram — ничего внешнего), затем Chrome без окна проходит
- * сайт как человек: три языка × телефон и ноутбук, форма заявки, вход в
- * админку, статус, заметка, Google-ссылка, выход. Скриншоты — в qa-output/.
+ * сайт как человек: три языка × телефон и ноутбук, затем три языка × 16
+ * размеров экрана (вёрстка, цели для пальца), меню телефона, форма заявки,
+ * вход в админку, статус, заметка, Google-ссылка, выход. Скриншоты — в qa-output/.
  *
  * Запуск: npm run build && npm run qa
  */
@@ -138,17 +139,120 @@ try {
     }
   }
 
+  // ---------------------------------------------- все размеры экранов ---
+  // Телефоны (узкие и широкие, вертикально и горизонтально), планшеты, ноутбуки, большие мониторы.
+  const MATRIX = [
+    ["320x568", 320, 568, true], ["360x800", 360, 800, true], ["375x667", 375, 667, true],
+    ["390x844", 390, 844, true], ["414x896", 414, 896, true], ["430x932", 430, 932, true],
+    ["568x320", 568, 320, true], ["844x390", 844, 390, true], ["932x430", 932, 430, true],
+    ["768x1024", 768, 1024, true], ["820x1180", 820, 1180, true], ["1024x768", 1024, 768, true],
+    ["1280x800", 1280, 800, false], ["1440x900", 1440, 900, false], ["1920x1080", 1920, 1080, false],
+    ["2560x1440", 2560, 1440, false],
+  ];
+  // Что считается поломкой вёрстки на любом экране.
+  const LAYOUT = `(() => {
+    const vw = window.innerWidth;
+    const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !el.closest('[aria-hidden="true"], .sr-only'); };
+    const blocks = [...document.querySelectorAll('h1, h2, h3, p, li, dt, dd, label, summary, button, a.btn, th, td')]
+      .filter((el) => visible(el) && getComputedStyle(el).display !== 'inline' && getComputedStyle(el).overflowX === 'visible');
+    const spill = blocks.filter((el) => el.scrollWidth > el.clientWidth + 2).map((el) => el.tagName + ': ' + el.textContent.trim().slice(0, 40));
+    const clipped = [...document.querySelectorAll('.truncate')].filter((e) => visible(e) && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim());
+    // Цели для пальца: не меньше 24×24 (WCAG 2.5.8). Исключения стандарта: ссылка внутри строки
+    // текста и галочка внутри подписи — нажимается вся подпись целиком.
+    const targets = [...document.querySelectorAll('a, button, summary, select, input:not([type=hidden]), textarea')]
+      .filter((el) => visible(el) && el.tabIndex !== -1 && getComputedStyle(el).display !== 'inline'
+        && !(el.type === 'checkbox' && el.closest('label')));
+    const small = targets.filter((el) => { const r = el.getBoundingClientRect(); return r.width < 24 || r.height < 24; })
+      .map((el) => (el.getAttribute('aria-label') || el.textContent.trim() || el.name || el.tagName).slice(0, 30) + ' ' + Math.round(el.getBoundingClientRect().width) + '×' + Math.round(el.getBoundingClientRect().height));
+    return { overflow: document.documentElement.scrollWidth - vw, spill, clipped, small, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length };
+  })()`;
+  for (const [name, width, height, touch] of MATRIX) {
+    await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: touch });
+    for (const lang of ["ru", "kk", "en"]) {
+      await go(page, `${BASE}/${lang}`, 300);
+      await evaluate(page, "document.querySelectorAll('.reveal').forEach((e) => e.classList.add('is-visible'))");
+      await evaluate(page, "document.fonts.ready.then(() => true)");
+      const r = await evaluate(page, LAYOUT);
+      const problems = [
+        r.overflow > 0 ? `горизонтальная прокрутка ${r.overflow}px` : "",
+        r.spill.length ? `текст вылезает: ${r.spill.slice(0, 3).join(" | ")}` : "",
+        r.clipped.length ? `обрезано: ${r.clipped.slice(0, 3).join(", ")}` : "",
+        r.broken ? `битых картинок ${r.broken}` : "",
+        touch && r.small.length ? `мелкие цели: ${r.small.slice(0, 4).join(", ")}` : "",
+      ].filter(Boolean);
+      check(problems.length === 0, `${name} /${lang}: вёрстка цела`, problems.join("; "));
+      if (lang === "ru" && ["320x568", "844x390", "768x1024", "1024x768", "2560x1440"].includes(name)) {
+        await screenshot(page, path.join(SHOTS, `matrix-${name}-ru.png`));
+      }
+    }
+  }
+
+  // Казахские буквы рисует шрифт заголовков, а не запасной системный.
+  await page.send("Emulation.setDeviceMetricsOverride", viewports.laptop);
+  await go(page, `${BASE}/kk`, 600);
+  const kkGlyphs = await evaluate(page, `(async () => {
+    const family = getComputedStyle(document.querySelector('h1')).fontFamily;
+    const sample = 'әғқңөұүһі ӘҒҚҢӨҰҮҺІ';
+    await document.fonts.load('600 40px ' + family, sample);
+    const ctx = document.createElement('canvas').getContext('2d');
+    const width = (font) => { ctx.font = font; return ctx.measureText(sample).width; };
+    // Если букв в шрифте нет, ширина совпадёт с запасным моноширинным.
+    return { family: family.split(',')[0], own: width('600 40px ' + family.split(',')[0] + ', monospace'), mono: width('600 40px monospace') };
+  })()`);
+  check(Math.abs(kkGlyphs.own - kkGlyphs.mono) > 5, "казахские буквы — в шрифте заголовков", `${kkGlyphs.family}: ${Math.round(kkGlyphs.own)} против ${Math.round(kkGlyphs.mono)}`);
+
   // Мобильное меню
   await page.send("Emulation.setDeviceMetricsOverride", viewports.phone);
   await go(page, `${BASE}/ru`);
   await evaluate(page, `document.querySelector('button[aria-controls="mobile-menu"]').click()`);
   const menuOpen = await waitFor(page, `!!document.getElementById('mobile-menu')`);
   check(menuOpen, "телефон: меню открывается");
+  await sleep(300);
   await screenshot(page, path.join(SHOTS, "phone-ru-menu.png"));
   await evaluate(page, `document.querySelector('#mobile-menu a[href="#faq"]').click()`);
   check(await waitFor(page, `!document.getElementById('mobile-menu')`), "телефон: меню закрывается после выбора пункта");
 
+  // Горизонтальный телефон: экран низкий, меню должно прокручиваться до кнопки заявки.
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });
+  await go(page, `${BASE}/kk`);
+  await evaluate(page, `document.querySelector('button[aria-controls="mobile-menu"]').click()`);
+  await waitFor(page, `!!document.getElementById('mobile-menu')`);
+  const landscapeMenu = await evaluate(page, `(() => {
+    const menu = document.getElementById('mobile-menu');
+    const cta = menu.querySelector('.btn-gold');
+    menu.scrollTop = menu.scrollHeight;
+    const r = cta.getBoundingClientRect();
+    return { scrollable: menu.scrollHeight > menu.clientHeight, ctaVisible: r.bottom <= window.innerHeight + 1 && r.top >= 0 };
+  })()`);
+  check(landscapeMenu.ctaVisible, "горизонтальный телефон: меню прокручивается до кнопки заявки", JSON.stringify(landscapeMenu));
+  const headerDark = await evaluate(page, "getComputedStyle(document.querySelector('header')).backgroundColor");
+  check(headerDark === "rgb(18, 29, 19)", "открытое меню: шапка сразу тёмная, надписи читаются", headerDark);
+  await screenshot(page, path.join(SHOTS, "landscape-kk-menu.png"));
+  await evaluate(page, `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+  check(await waitFor(page, `!document.getElementById('mobile-menu')`), "меню закрывается клавишей Esc");
+
+  // Растянули окно до ноутбука при открытом меню — оно закрывается само.
+  await page.send("Emulation.setDeviceMetricsOverride", viewports.phone);
+  await go(page, `${BASE}/ru`);
+  await evaluate(page, `document.querySelector('button[aria-controls="mobile-menu"]').click()`);
+  await waitFor(page, `!!document.getElementById('mobile-menu')`);
+  await page.send("Emulation.setDeviceMetricsOverride", viewports.laptop);
+  check(await waitFor(page, `!document.getElementById('mobile-menu') && document.body.style.overflow === ''`), "меню закрывается, когда окно стало широким");
+  await page.send("Emulation.setDeviceMetricsOverride", viewports.phone);
+
+  // Внутренние страницы на самом узком экране.
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 568, deviceScaleFactor: 1, mobile: true });
+  for (const p of ["/kk/privacy", "/ru/privacy", "/kk/no-such-page"]) {
+    await go(page, `${BASE}${p}`, 300);
+    await evaluate(page, "document.fonts.ready.then(() => true)");
+    const r = await evaluate(page, LAYOUT);
+    const problems = [r.overflow > 0 ? `прокрутка ${r.overflow}px` : "", r.spill.length ? r.spill.slice(0, 2).join(" | ") : "", r.small.length ? r.small.slice(0, 3).join(", ") : ""].filter(Boolean);
+    check(problems.length === 0, `320px ${p}: вёрстка цела`, problems.join("; "));
+  }
+  await page.send("Emulation.setDeviceMetricsOverride", viewports.phone);
+
   // Переключатель языка
+  await go(page, `${BASE}/ru`);
   await evaluate(page, "window.scrollTo(0, document.body.scrollHeight)");
   await evaluate(page, `[...document.querySelectorAll('footer a')].find(a => a.textContent === 'KK').click()`);
   check(await waitFor(page, `location.pathname === '/kk' && document.documentElement.lang === 'kk'`), "переключатель языка ведёт на /kk");
