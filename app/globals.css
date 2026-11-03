@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+/* Палитра Horsteppe — та же, что у продукта: степь, травы, закатный свет. */
+@theme {
+  --color-forest: #0e2a10;
+  --color-forest-2: #14351a;
+  --color-moss: #24471f;
+  --color-sage: #6d8c3e;
+  --color-olive: #93a845;
+  --color-lime: #c3ce6a;
+  --color-pale: #e6e7b8;
+  --color-cream: #f4f1d2;
+  --color-ember: #b4532a;
+
+  --color-ink: #16341a;
+  --color-ink-soft: #2f5233;
+  --color-ink-mute: #5b7a5b;
+  --color-paper: #f7f6e9;
+  --color-card: #fbfaf1;
+
+  --font-display: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 88px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-cream);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-sage);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .container-x {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-x {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .kicker {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Первый экран проявляется на CSS: ему не нужно ждать скриптов. */
+  .rise {
+    animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--d, 0s);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /*
+   * Блоки ниже первого экрана проявляются при прокрутке. Класс .js ставит
+   * скрипт в <head>: без JavaScript всё видно сразу, ничего не прячется.
+   */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--d, 0s);
+  }
+
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Мягкое свечение фона — степь на закате. */
+  .glow {
+    background:
+      radial-gradient(60% 55% at 85% 10%, color-mix(in oklab, var(--color-lime) 38%, transparent) 0%, transparent 70%),
+      radial-gradient(50% 50% at 0% 40%, color-mix(in oklab, var(--color-olive) 22%, transparent) 0%, transparent 70%);
+  }
+
+  .grain {
+    background-image: radial-gradient(color-mix(in oklab, var(--color-ink) 7%, transparent) 0.6px, transparent 0.6px);
+    background-size: 3px 3px;
+  }
+
+  /* ---- Демонстрация конвейера на первом экране ---- */
+
+  .demo-step {
+    animation: demoStep 9s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+  }
+
+  @keyframes demoStep {
+    0%, 6% { background: transparent; color: color-mix(in oklab, var(--color-cream) 55%, transparent); border-color: color-mix(in oklab, var(--color-cream) 16%, transparent); }
+    10%, 92% { background: color-mix(in oklab, var(--color-lime) 16%, transparent); color: var(--color-cream); border-color: color-mix(in oklab, var(--color-lime) 50%, transparent); }
+    100% { background: transparent; color: color-mix(in oklab, var(--color-cream) 55%, transparent); border-color: color-mix(in oklab, var(--color-cream) 16%, transparent); }
+  }
+
+  .demo-check {
+    animation: demoCheck 9s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+  }
+
+  @keyframes demoCheck {
+    0%, 6% { opacity: 0; transform: scale(0.6); }
+    10%, 92% { opacity: 1; transform: none; }
+    100% { opacity: 0; }
+  }
+
+  .demo-shot {
+    animation: demoShot 9s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+    transform-origin: left center;
+  }
+
+  @keyframes demoShot {
+    0%, 30% { opacity: 0.18; transform: scaleX(0.4); }
+    40%, 92% { opacity: 1; transform: none; }
+    100% { opacity: 0.18; transform: scaleX(0.4); }
+  }
+
+  .demo-real {
+    background-image: linear-gradient(110deg, var(--color-olive) 0%, var(--color-lime) 45%, var(--color-olive) 90%);
+    background-size: 220% 100%;
+    animation: shimmer 2.6s linear infinite;
+  }
+
+  @keyframes shimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+  }
+
+  .demo-done {
+    animation: demoDone 9s ease-in-out infinite;
+  }
+
+  @keyframes demoDone {
+    0%, 78% { opacity: 0.25; }
+    84%, 94% { opacity: 1; }
+    100% { opacity: 0.25; }
+  }
+
+  .caret::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -0.15em;
+    background: var(--color-lime);
+    animation: caret 1.1s steps(1) infinite;
+  }
+
+  @keyframes caret {
+    50% { opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    /* Демонстрация застывает в законченном виде, а не в пустом. */
+    .demo-step { background: color-mix(in oklab, var(--color-lime) 16%, transparent); color: var(--color-cream); }
+    .demo-check, .demo-done, .demo-shot { opacity: 1; transform: none; }
+    .js .reveal { opacity: 1; transform: none; }
+  }
+}
