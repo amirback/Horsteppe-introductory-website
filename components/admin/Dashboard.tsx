@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { leadsCsv } from "../../lib/csv.ts";
-import { STATUS_LABEL, USE_CASE_LABEL, VOLUME_LABEL } from "../../lib/leads/labels.ts";
+import { contactLinks } from "../../lib/leads/contact.ts";
+import { STATUS_LABEL, USE_CASE_LABEL, VOLUME_LABEL, leadSource as sourceOf } from "../../lib/leads/labels.ts";
 import { STATUSES, USE_CASES, type Lead, type Status } from "../../lib/leads/schema.ts";
 import { CloseIcon } from "../site/Icons.tsx";
 import { Emblem } from "../site/Brand.tsx";
 import { DailyChart, leadsWord, type Day } from "./DailyChart.tsx";
+import { TelegramDialog } from "./TelegramDialog.tsx";
 
 type Period = "all" | "30" | "7" | "today";
 const PERIODS: { value: Period; label: string }[] = [
@@ -34,33 +36,6 @@ function inPeriod(lead: Lead, period: Period): boolean {
   return new Date(lead.created_at) >= from;
 }
 
-function contactLinks(contact: string | null): { label: string; href: string }[] {
-  if (!contact) return [];
-  const value = contact.trim();
-  const handle = value.match(/^@?([A-Za-z0-9_]{4,32})$/);
-  const tg = value.match(/t\.me\/([A-Za-z0-9_]{4,32})/);
-  const digits = value.replace(/[^\d+]/g, "");
-  const links: { label: string; href: string }[] = [];
-  if (tg || (handle && value.startsWith("@"))) links.push({ label: "Telegram", href: `https://t.me/${(tg ?? handle)![1]}` });
-  if (/^\+?\d{10,15}$/.test(digits)) {
-    links.push({ label: "Позвонить", href: `tel:${digits}` });
-    links.push({ label: "WhatsApp", href: `https://wa.me/${digits.replace(/^\+/, "")}` });
-  }
-  return links;
-}
-
-function sourceOf(lead: Lead): string {
-  if (lead.utm_source) return [lead.utm_source, lead.utm_medium].filter(Boolean).join(" / ");
-  if (lead.referrer) {
-    try {
-      return new URL(lead.referrer).host.replace(/^www\./, "");
-    } catch {
-      return lead.referrer;
-    }
-  }
-  return "напрямую";
-}
-
 export function Dashboard() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +49,7 @@ export function Dashboard() {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [sheetsOpen, setSheetsOpen] = useState(false);
+  const [telegramOpen, setTelegramOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -222,6 +198,9 @@ export function Dashboard() {
             </button>
             <button onClick={() => setSheetsOpen(true)} disabled={!sheetsUrl} className="btn btn-line hidden min-h-10 px-4 py-2 text-[0.875rem] disabled:opacity-40 sm:inline-flex">
               Google Таблица
+            </button>
+            <button onClick={() => setTelegramOpen(true)} className="btn btn-line hidden min-h-10 px-4 py-2 text-[0.875rem] sm:inline-flex">
+              Telegram
             </button>
             <button onClick={logout} className="inline-flex min-h-10 items-center rounded-[0.25rem] px-3 py-2 text-[0.875rem] font-semibold text-ink-mute hover:text-ink">
               Выйти
@@ -415,11 +394,15 @@ export function Dashboard() {
               Google Таблица
             </button>
           </div>
+          <button onClick={() => setTelegramOpen(true)} className="btn btn-line mt-2 w-full sm:hidden">
+            Telegram-бот
+          </button>
         </div>
       </main>
 
       {opened ? <LeadPanel lead={opened} onClose={() => setOpenId(null)} onPatch={patch} onDelete={remove} /> : null}
       {sheetsOpen && sheetsUrl ? <SheetsDialog url={sheetsUrl} onClose={() => setSheetsOpen(false)} /> : null}
+      {telegramOpen ? <TelegramDialog onClose={() => setTelegramOpen(false)} /> : null}
       {toast ? (
         <div role="status" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-[0.25rem] bg-pine px-5 py-2.5 text-[0.875rem] text-parchment shadow-lg">
           {toast}

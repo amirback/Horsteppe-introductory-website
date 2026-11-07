@@ -280,7 +280,7 @@ export const en: SiteDict = {
   },
   privacy: {
     title: "How we handle data from the early access form",
-    updated: "Updated 3 November 2026",
+    updated: "Updated 7 November 2026",
     intro: "What we learn about you when you leave a request, why, and how to have it deleted. No fine print.",
     sections: [
       { h: "Who processes the data", p: ["Horsteppe. For any question about your data, email Horsteppe@gmail.com."] },
@@ -298,7 +298,7 @@ export const en: SiteDict = {
       {
         h: "Where it is stored",
         p: [
-          "In the service database with our providers: Supabase (database) and Vercel (website hosting). Notifications about new requests may be delivered to the Horsteppe team in Telegram.",
+          "In the service database with our providers: Supabase (database) and Vercel (website hosting). The Horsteppe team receives requests and works with them in a private Telegram bot available only to the team.",
         ],
       },
       { h: "How long we keep it", p: ["For as long as we need it to contact you about early access, or until you ask us to delete it."] },

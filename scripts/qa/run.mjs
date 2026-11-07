@@ -11,6 +11,7 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { evaluate, go, launch, openPage, screenshot, sleep, waitFor } from "./cdp.mjs";
 
@@ -32,9 +33,40 @@ function check(ok, label, extra = "") {
   console.log(`${ok ? "✓" : "✗"} ${label}${extra ? `  — ${extra}` : ""}`);
 }
 
+// ----------------------------------------------------- поддельный Telegram ---
+// Сайт ходит в него вместо api.telegram.org (TELEGRAM_API_BASE работает только вне Vercel).
+const TG_PORT = Number(process.env.QA_TG_PORT || 3472);
+const TG_TOKEN = "123456789:QA-test-token-not-a-real-bot-000";
+const tgCalls = [];
+let tgWebhook = { url: "", secret: "" };
+const tg = http.createServer((req, res) => {
+  let raw = "";
+  req.on("data", (chunk) => (raw += chunk));
+  req.on("end", () => {
+    const method = req.url.split("/").pop();
+    let params = {};
+    try {
+      params = JSON.parse(raw || "{}");
+    } catch {
+      // пусто
+    }
+    tgCalls.push({ method, params });
+    if (method === "setWebhook") tgWebhook = { url: params.url, secret: params.secret_token };
+    const result =
+      method === "getMe" ? { id: 1, is_bot: true, first_name: "Horsteppe Заявки", username: "horsteppe_qa_bot" }
+        : method === "getWebhookInfo" ? { url: tgWebhook.url, pending_update_count: 0 }
+          : method === "sendMessage" ? { message_id: tgCalls.length, chat: { id: params.chat_id } }
+            : true;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, result }));
+  });
+});
+await new Promise((resolve) => tg.listen(TG_PORT, "127.0.0.1", resolve));
+
 // ---------------------------------------------------------------- сервер ---
 const env = { ...process.env, NODE_ENV: "production", LEADS_FILE_STORE: "1", LEADS_FILE_DIR: DATA, ADMIN_PASSWORD: PASSWORD, PORT: String(PORT) };
-for (const key of ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY", "TELEGRAM_BOT_TOKEN", "VERCEL"]) delete env[key];
+for (const key of ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "VERCEL"]) delete env[key];
+Object.assign(env, { TELEGRAM_BOT_TOKEN: TG_TOKEN, TELEGRAM_API_BASE: `http://127.0.0.1:${TG_PORT}` });
 const server = spawn(path.join(ROOT, "node_modules/.bin/next"), ["start", "-p", String(PORT)], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
 let serverLog = "";
 server.stdout.on("data", (d) => (serverLog += d));
@@ -270,6 +302,51 @@ try {
   check(calm === "1", "«уменьшить движение»: показ работы застыл в готовом виде", calm);
   await page.send("Emulation.setEmulatedMedia", { features: [] });
 
+  // -------------------------------------------- Telegram: подключение ---
+  const readLeads = () => JSON.parse(fs.readFileSync(path.join(DATA, "leads.json"), "utf8"));
+  const sentTo = (chat) => tgCalls.filter((c) => c.method === "sendMessage" && Number(c.params.chat_id) === chat);
+  const waitTg = async (ok, ms = 6000) => {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      try {
+        if (ok()) return true;
+      } catch {
+        // ещё не готово
+      }
+      await sleep(100);
+    }
+    return false;
+  };
+  const owner = { id: 777, type: "private", first_name: "Амирхан" };
+  const say = (text, chat = owner, extra = {}) => ({
+    update_id: Date.now(),
+    message: { message_id: 1, chat, from: { id: chat.id, first_name: chat.first_name }, text, ...extra },
+  });
+  const hook = (update, secret = tgWebhook.secret) =>
+    fetch(`${BASE}/api/telegram/webhook`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": secret },
+      body: JSON.stringify(update),
+    });
+
+  const tgLogin = await fetch(`${BASE}/api/admin/login`, {
+    method: "POST", headers: { "content-type": "application/json", origin: BASE }, body: JSON.stringify({ password: PASSWORD }),
+  });
+  const adminCookie = (tgLogin.headers.get("set-cookie") || "").split(";")[0];
+  const linkRes = await fetch(`${BASE}/api/admin/telegram`, {
+    method: "POST", headers: { cookie: adminCookie, origin: BASE, "content-type": "application/json" }, body: JSON.stringify({ action: "link" }),
+  });
+  const linkBody = await linkRes.json().catch(() => ({}));
+  check(linkRes.ok && /^https:\/\/t\.me\/horsteppe_qa_bot\?start=L/.test(linkBody.link ?? ""), "Telegram: «Подключить» выдаёт ссылку на бота", linkBody.link ?? JSON.stringify(linkBody));
+  check(tgWebhook.url.endsWith("/api/telegram/webhook") && tgWebhook.secret.length >= 32, "Telegram: адрес для сообщений настроен, с секретом");
+  check((await hook(say("/all"), "wrong-secret")).status === 401, "Telegram: подделка от чужого — 401");
+  if (linkBody.link) await hook(say(`/start ${new URL(linkBody.link).searchParams.get("start")}`));
+  check(await waitTg(() => sentTo(777).some((c) => String(c.params.text).includes("Готово"))), "Telegram: Start по ссылке подключает чат");
+  check(
+    await waitTg(() => JSON.parse(fs.readFileSync(path.join(DATA, "telegram-chats.json"), "utf8")).some((c) => c.chat_id === 777)),
+    "Telegram: чат записан в хранилище",
+  );
+
   // ----------------------------------------------------------- форма ---
   await page.send("Emulation.setDeviceMetricsOverride", viewports.laptop);
   await go(page, `${BASE}/ru?utm_source=qa&utm_medium=test`);
@@ -292,6 +369,30 @@ try {
   const stored = JSON.parse(fs.readFileSync(path.join(DATA, "leads.json"), "utf8"));
   check(stored.length === 1 && stored[0].email === "qa.lead@example.kz", "форма: заявка записана в хранилище");
   check(stored[0].utm_source === "qa" && stored[0].lang === "ru" && stored[0].use_case === "product_ads", "форма: метки источника, язык и задача сохранены");
+
+  // ------------------------------------------- Telegram: работа с заявкой ---
+  const isCard = (c) => String(c.params.text).includes("Новая заявка на ранний доступ") && String(c.params.text).includes("Айгерим Тестова");
+  check(await waitTg(() => sentTo(777).some(isCard)), "Telegram: о новой заявке пришло сообщение с именем");
+  const card = sentTo(777).find(isCard);
+  const invite = card?.params.reply_markup?.inline_keyboard.flat().find((b) => b.text === "Пригласили");
+  check(!!invite, "Telegram: под заявкой кнопки статуса");
+  if (invite) {
+    await hook({ update_id: 2, callback_query: { id: "qa-cb", data: invite.callback_data, message: { message_id: 9, chat: owner } } });
+    check(await waitTg(() => readLeads()[0].status === "invited"), "Telegram: кнопка «Пригласили» меняет статус заявки");
+  }
+  await hook(say("📋 Все заявки"));
+  check(
+    await waitTg(() => sentTo(777).some((c) => String(c.params.text).includes("Все заявки") && String(c.params.text).includes("Айгерим"))),
+    "Telegram: «Все заявки» показывает список",
+  );
+  await hook(say("Позвонить завтра в 11", owner, { reply_to_message: { text: card?.params.text, reply_markup: card?.params.reply_markup } }));
+  check(await waitTg(() => (readLeads()[0].admin_note ?? "").includes("Позвонить завтра в 11")), "Telegram: ответ на заявку сохраняется заметкой");
+  const stranger = { id: 999, type: "private", first_name: "Чужой" };
+  await hook(say("📋 Все заявки", stranger));
+  check(
+    (await waitTg(() => sentTo(999).length > 0)) && sentTo(999).every((c) => !String(c.params.text).includes("Айгерим")),
+    "Telegram: чужому человеку бот заявки не показывает",
+  );
 
   // --------------------------------------------------------- админка ---
   await go(page, `${BASE}/admin`);
@@ -334,6 +435,16 @@ try {
   await screenshot(page, path.join(SHOTS, "laptop-admin-sheets.png"));
   await evaluate(page, `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
 
+  await evaluate(page, `[...document.querySelectorAll('header button')].find(b => b.textContent === 'Telegram').click()`);
+  const tgDialog = `document.querySelector('[role=dialog][aria-label=Telegram]')?.textContent ?? ''`;
+  check(
+    await waitFor(page, `(${tgDialog}).includes('@horsteppe_qa_bot') && (${tgDialog}).includes('Амирхан')`),
+    "админка: окно Telegram показывает бота и подключённый чат",
+  );
+  await sleep(300);
+  await screenshot(page, path.join(SHOTS, "laptop-admin-telegram.png"));
+  await evaluate(page, `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+
   await page.send("Emulation.setDeviceMetricsOverride", viewports.phone);
   await go(page, `${BASE}/admin`, 1200);
   check((await evaluate(page, "document.documentElement.scrollWidth - window.innerWidth")) <= 0, "админка на телефоне без горизонтальной прокрутки");
@@ -349,6 +460,7 @@ try {
 } finally {
   chrome?.proc.kill();
   server.kill();
+  tg.close();
 }
 
 const failed = results.filter((r) => !r.ok);
