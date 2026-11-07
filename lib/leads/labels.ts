@@ -1,5 +1,5 @@
 /** Подписи для админки, CSV и уведомлений. Админка — по-русски. */
-import type { Status, UseCase, Volume } from "./schema.ts";
+import type { Lead, Status, UseCase, Volume } from "./schema.ts";
 
 export const STATUS_LABEL: Record<Status, string> = {
   new: "Новая",
@@ -26,3 +26,16 @@ export const VOLUME_LABEL: Record<Volume, string> = {
 };
 
 export const LANG_LABEL: Record<string, string> = { en: "EN", ru: "RU", kk: "KK" };
+
+/** Откуда пришёл человек: метка рекламы, иначе сайт-источник, иначе «напрямую». */
+export function leadSource(lead: Pick<Lead, "utm_source" | "utm_medium" | "referrer">): string {
+  if (lead.utm_source) return [lead.utm_source, lead.utm_medium].filter(Boolean).join(" / ");
+  if (lead.referrer) {
+    try {
+      return new URL(lead.referrer).host.replace(/^www\./, "");
+    } catch {
+      return lead.referrer;
+    }
+  }
+  return "напрямую";
+}

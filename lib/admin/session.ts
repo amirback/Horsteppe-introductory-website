@@ -23,6 +23,15 @@ function secretOf(password: string, env: Env): string {
   return `horsteppe-admin|${env.ADMIN_SESSION_SECRET ?? ""}|${password}`;
 }
 
+/**
+ * Ключ подписи для того, что выдаёт только админка (ссылка подключения
+ * Telegram). Без пароля админки — null: подписывать нечем, и это правильно.
+ */
+export function adminSigningSecret(env: Env = process.env): string | null {
+  const password = adminPassword(env);
+  return password ? secretOf(password, env) : null;
+}
+
 export async function passwordMatches(given: unknown, env: Env = process.env): Promise<boolean> {
   const expected = adminPassword(env);
   if (!expected || typeof given !== "string" || given.length > 512) return false;

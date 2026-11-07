@@ -40,11 +40,12 @@ export function json(body: unknown, status = 200, headers: Record<string, string
   });
 }
 
-async function readJson(request: Request): Promise<unknown | undefined> {
-  if (Number(request.headers.get("content-length") || 0) > MAX_BODY) return undefined;
+/** Тело запроса как JSON, не больше max байт; иначе undefined. */
+export async function readJson(request: Request, max: number = MAX_BODY): Promise<unknown | undefined> {
+  if (Number(request.headers.get("content-length") || 0) > max) return undefined;
   try {
     const raw = await request.text();
-    if (raw.length > MAX_BODY) return undefined;
+    if (raw.length > max) return undefined;
     return JSON.parse(raw);
   } catch {
     return undefined;

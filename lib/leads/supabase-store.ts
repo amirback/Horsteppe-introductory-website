@@ -1,5 +1,5 @@
 /**
- * Заявки в Supabase: таблицы intro_leads и intro_rate_events.
+ * Заявки в Supabase: таблицы intro_leads, intro_rate_events и intro_telegram_chats.
  *
  * Ключ — служебный, только на сервере. Клиент supabase-js выбран намеренно:
  * заголовки ключа он ставит ровно так же, как во всём остальном продукте
@@ -8,11 +8,13 @@
  * заметно это станет только на проде.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { MissingTableError, isMissingTable } from "./errors.ts";
 import type { Lead, NewLead } from "./schema.ts";
-import type { LeadMeta, LeadPatch, LeadStore, SaveResult } from "./store.ts";
+import type { LeadMeta, LeadPatch, LeadStore, SaveResult, TelegramChat } from "./store.ts";
 
 const LEADS = "intro_leads";
 const EVENTS = "intro_rate_events";
+const CHATS = "intro_telegram_chats";
 export const LEAD_COLUMNS =
   "id,created_at,updated_at,last_submitted_at,submit_count,name,email,contact,company,use_case,volume," +
   "message,lang,country,city,utm_source,utm_medium,utm_campaign,referrer,landing_path,status,admin_note";
@@ -20,7 +22,8 @@ export const LEAD_COLUMNS =
 /** Отдельный класс, чтобы не тянуть store.ts по кругу ради одной ошибки. */
 class SupabaseStoreError extends Error {}
 
-function fail(what: string, error: { message?: string; code?: string } | null): never {
+function fail(what: string, error: { message?: string; code?: string } | null, table?: string): never {
+  if (table && isMissingTable(error?.code)) throw new MissingTableError(table);
   throw new SupabaseStoreError(`${what}: ${error?.code ?? ""} ${error?.message ?? "unknown error"}`.trim());
 }
 
@@ -76,6 +79,12 @@ export class SupabaseLeadStore implements LeadStore {
     return (data ?? []) as unknown as Lead[];
   }
 
+  async getLead(id: string): Promise<Lead | null> {
+    const { data, error } = await this.db.from(LEADS).select(LEAD_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail("get", error);
+    return (data as unknown as Lead) ?? null;
+  }
+
   async updateLead(id: string, patch: LeadPatch): Promise<Lead | null> {
     const { data, error } = await this.db.from(LEADS).update(patch).eq("id", id).select(LEAD_COLUMNS).maybeSingle();
     if (error) fail("patch", error);
@@ -107,5 +116,23 @@ export class SupabaseLeadStore implements LeadStore {
       const cutoff = new Date(now.getTime() - 2 * 24 * 3600 * 1000).toISOString();
       await this.db.from(EVENTS).delete().lt("created_at", cutoff);
     }
+  }
+
+  async listChats(): Promise<TelegramChat[]> {
+    const { data, error } = await this.db.from(CHATS).select("chat_id,title,linked_at").order("linked_at");
+    if (error) fail("chats", error, CHATS);
+    return (data ?? []) as TelegramChat[];
+  }
+
+  async addChat(chat: { chat_id: number; title: string | null }): Promise<void> {
+    // Повторное подключение того же чата только обновляет подпись.
+    const { error } = await this.db.from(CHATS).upsert(chat, { onConflict: "chat_id" });
+    if (error) fail("chat add", error, CHATS);
+  }
+
+  async removeChat(chatId: number): Promise<boolean> {
+    const { data, error } = await this.db.from(CHATS).delete().eq("chat_id", chatId).select("chat_id");
+    if (error) fail("chat remove", error, CHATS);
+    return (data ?? []).length > 0;
   }
 }

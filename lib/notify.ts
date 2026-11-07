@@ -1,66 +1,56 @@
 /**
- * Уведомление о заявке в Telegram — если заданы TELEGRAM_BOT_TOKEN и
- * TELEGRAM_CHAT_ID. Без них молча выключено.
+ * Уведомление о заявке в Telegram: карточка с кнопками статуса — во все чаты,
+ * подключённые из админки, и в TELEGRAM_CHAT_ID, если он задан. Без токена
+ * бота (TELEGRAM_BOT_TOKEN) молча выключено.
  *
  * Уведомление вторично: заявка уже записана. Поэтому сбой Telegram не
  * роняет ответ посетителю, а ожидание ограничено несколькими секундами.
  */
-import { USE_CASE_LABEL, VOLUME_LABEL } from "./leads/labels.ts";
 import type { Lead } from "./leads/schema.ts";
+import type { LeadStore } from "./leads/store.ts";
+import { botToken, telegramApi } from "./telegram/api.ts";
+import { leadCard } from "./telegram/format.ts";
 
 type Env = Record<string, string | undefined>;
 
-function escape(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-export function leadMessage(lead: Lead, created: boolean, adminUrl?: string): string {
-  const lines = [
-    `<b>${created ? "Новая заявка" : "Повторная заявка"} — Horsteppe</b>`,
-    "",
-    `<b>${escape(lead.name)}</b> · ${escape(lead.email)}`,
-  ];
-  if (lead.contact) lines.push(`Связь: ${escape(lead.contact)}`);
-  if (lead.company) lines.push(`Компания: ${escape(lead.company)}`);
-  if (lead.use_case) lines.push(`Задача: ${escape(USE_CASE_LABEL[lead.use_case])}`);
-  if (lead.volume) lines.push(`Объём: ${escape(VOLUME_LABEL[lead.volume])}`);
-  if (lead.message) lines.push("", escape(lead.message.slice(0, 600)));
-  const origin = [lead.lang.toUpperCase(), lead.country, lead.city, lead.utm_source && `utm: ${lead.utm_source}`]
-    .filter(Boolean)
-    .map((v) => escape(String(v)));
-  lines.push("", origin.join(" · "));
-  if (adminUrl) lines.push(adminUrl);
-  return lines.join("\n");
+/** Кому слать: подключённые чаты и чат из настроек, без повторов. */
+export async function notifyTargets(env: Env, store?: LeadStore | null): Promise<string[]> {
+  const targets = new Set<string>();
+  const fixed = env.TELEGRAM_CHAT_ID?.trim();
+  if (fixed) targets.add(fixed);
+  if (store) {
+    try {
+      for (const chat of await store.listChats()) targets.add(String(chat.chat_id));
+    } catch {
+      // Таблицы чатов может ещё не быть — тогда только чат из настроек.
+    }
+  }
+  return [...targets];
 }
 
 export async function notifyTelegram(
   lead: Lead,
   created: boolean,
-  options: { env?: Env; fetchImpl?: typeof fetch; adminUrl?: string; timeoutMs?: number } = {},
+  options: { env?: Env; store?: LeadStore | null; site?: string; fetchImpl?: typeof fetch; timeoutMs?: number } = {},
 ): Promise<boolean> {
   const env = options.env ?? process.env;
-  const token = env.TELEGRAM_BOT_TOKEN?.trim();
-  const chat = env.TELEGRAM_CHAT_ID?.trim();
-  if (!token || !chat) return false;
+  const token = botToken(env);
+  if (!token) return false;
+  const targets = await notifyTargets(env, options.store);
+  if (!targets.length) return false;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 3500);
-  try {
-    const response = await (options.fetchImpl ?? fetch)(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+  const card = leadCard(lead, created ? "new" : "repeat", options.site);
+  const api = telegramApi(token, { env, fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs ?? 3500 });
+  const results = await Promise.all(
+    targets.map((chat) =>
+      api.call("sendMessage", {
         chat_id: chat,
-        text: leadMessage(lead, created, options.adminUrl),
+        text: card.text,
         parse_mode: "HTML",
         disable_web_page_preview: true,
+        reply_markup: card.reply_markup,
       }),
-      signal: controller.signal,
-    });
-    return response.ok;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+    ),
+  );
+  return results.some((r) => r.ok);
 }

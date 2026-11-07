@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { MissingTableError } from "../lib/leads/errors.ts";
 import { SupabaseLeadStore } from "../lib/leads/supabase-store.ts";
 import type { NewLead } from "../lib/leads/schema.ts";
 
@@ -119,4 +120,29 @@ test("счётчик лимита — запрос HEAD с точным подс
   assert.equal(seen[0].url.searchParams.get("kind"), "eq.lead");
   assert.equal(seen[0].url.searchParams.get("created_at"), "gte.2026-11-03T09:00:00.000Z");
   assert.match(seen[0].headers.get("prefer") ?? "", /count=exact/);
+});
+
+test("чаты бота: подключение — upsert по chat_id, нет таблицы — понятная ошибка", async () => {
+  const { impl, seen } = fakeFetch(() => ({ status: 201, body: [] }));
+  await new SupabaseLeadStore(URL_BASE, "sb_secret_test_key", impl).addChat({ chat_id: 777, title: "Амирхан" });
+  assert.equal(seen[0].method, "POST");
+  assert.equal(seen[0].url.pathname, "/rest/v1/intro_telegram_chats");
+  assert.equal(seen[0].url.searchParams.get("on_conflict"), "chat_id");
+  assert.match(seen[0].headers.get("prefer") ?? "", /resolution=merge-duplicates/, "повторное подключение не падает на дубле");
+  assert.deepEqual(seen[0].body, { chat_id: 777, title: "Амирхан" });
+
+  const missing = fakeFetch(() => ({
+    status: 404,
+    body: { code: "PGRST205", message: "Could not find the table 'public.intro_telegram_chats' in the schema cache" },
+  }));
+  await assert.rejects(new SupabaseLeadStore(URL_BASE, "sb_secret_test_key", missing.impl).listChats(), MissingTableError);
+  const other = fakeFetch(() => ({ status: 500, body: { code: "XX000", message: "boom" } }));
+  await assert.rejects(new SupabaseLeadStore(URL_BASE, "sb_secret_test_key", other.impl).listChats(), (e) => !(e instanceof MissingTableError));
+});
+
+test("одна заявка по id — запрос с фильтром и ответ-объект", async () => {
+  const { impl, seen } = fakeFetch(() => ({ body: [row] }));
+  const lead = await new SupabaseLeadStore(URL_BASE, "sb_secret_test_key", impl).getLead(row.id);
+  assert.equal(lead?.email, "ali@example.kz");
+  assert.equal(seen[0].url.searchParams.get("id"), `eq.${row.id}`);
 });

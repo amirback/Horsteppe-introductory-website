@@ -14,15 +14,22 @@ import { SupabaseLeadStore } from "./supabase-store.ts";
 export type LeadMeta = { country: string | null; city: string | null };
 export type SaveResult = { lead: Lead; created: boolean };
 export type LeadPatch = { status?: Status; admin_note?: string | null };
+/** Чат Telegram, подключённый к заявкам из админки: туда бот шлёт новые заявки. */
+export type TelegramChat = { chat_id: number; title: string | null; linked_at: string };
 
 export interface LeadStore {
   readonly kind: "supabase" | "file";
   saveLead(input: NewLead, meta: LeadMeta, now?: Date): Promise<SaveResult>;
   listLeads(limit?: number): Promise<Lead[]>;
+  getLead(id: string): Promise<Lead | null>;
   updateLead(id: string, patch: LeadPatch): Promise<Lead | null>;
   deleteLead(id: string): Promise<boolean>;
   countEvents(kind: string, key: string, since: Date): Promise<number>;
   addEvent(kind: string, key: string, now?: Date): Promise<void>;
+  /** Нет таблицы чатов — MissingTableError (свежий SQL ещё не выполнен). */
+  listChats(): Promise<TelegramChat[]>;
+  addChat(chat: { chat_id: number; title: string | null }): Promise<void>;
+  removeChat(chatId: number): Promise<boolean>;
 }
 
 type Env = Record<string, string | undefined>;

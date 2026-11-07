@@ -79,16 +79,32 @@ create index if not exists intro_rate_events_lookup_idx
   on public.intro_rate_events (kind, key_hash, created_at desc);
 
 -- ============================================================
--- 3. Доступ: только сервер сайта
+-- 3. Telegram-бот: чаты, куда приходят заявки
+-- ============================================================
+-- Чат попадает сюда, только когда человек открыл ссылку подключения из
+-- админки (она подписана и живёт 30 минут). Хранится номер чата и подпись.
+
+create table if not exists public.intro_telegram_chats (
+  chat_id   bigint primary key,
+  title     text check (title is null or char_length(title) <= 200),
+  linked_at timestamptz not null default now()
+);
+
+-- ============================================================
+-- 4. Доступ: только сервер сайта
 -- ============================================================
 
 alter table public.intro_leads enable row level security;
 alter table public.intro_rate_events enable row level security;
+alter table public.intro_telegram_chats enable row level security;
 
 revoke all on public.intro_leads from anon, authenticated;
 revoke all on public.intro_rate_events from anon, authenticated;
+revoke all on public.intro_telegram_chats from anon, authenticated;
 
 comment on table public.intro_leads is
   'Заявки на ранний доступ с ознакомительного сайта Horsteppe. Пишет и читает только сервер сайта.';
 comment on table public.intro_rate_events is
   'Отметки лимита частоты: отпечаток IP с солью, без самого адреса. Живут двое суток.';
+comment on table public.intro_telegram_chats is
+  'Чаты Telegram, подключённые к заявкам из админки сайта. Пишет и читает только сервер сайта.';

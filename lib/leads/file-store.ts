@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Lead, NewLead } from "./schema.ts";
-import type { LeadMeta, LeadPatch, LeadStore, SaveResult } from "./store.ts";
+import type { LeadMeta, LeadPatch, LeadStore, SaveResult, TelegramChat } from "./store.ts";
 
 type Event = { kind: string; key_hash: string; created_at: string };
 
@@ -83,6 +83,11 @@ export class FileLeadStore implements LeadStore {
     return [...leads].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
   }
 
+  async getLead(id: string): Promise<Lead | null> {
+    const leads = await this.read<Lead[]>("leads.json", []);
+    return leads.find((l) => l.id === id) ?? null;
+  }
+
   updateLead(id: string, patch: LeadPatch): Promise<Lead | null> {
     return this.serial(async () => {
       const leads = await this.read<Lead[]>("leads.json", []);
@@ -117,6 +122,30 @@ export class FileLeadStore implements LeadStore {
       const kept = events.filter((e) => e.created_at >= cutoff);
       kept.push({ kind, key_hash: key, created_at: now.toISOString() });
       await this.write("events.json", kept);
+    });
+  }
+
+  async listChats(): Promise<TelegramChat[]> {
+    return this.read<TelegramChat[]>("telegram-chats.json", []);
+  }
+
+  addChat(chat: { chat_id: number; title: string | null }): Promise<void> {
+    return this.serial(async () => {
+      const chats = await this.read<TelegramChat[]>("telegram-chats.json", []);
+      const existing = chats.find((c) => c.chat_id === chat.chat_id);
+      if (existing) existing.title = chat.title;
+      else chats.push({ ...chat, linked_at: new Date().toISOString() });
+      await this.write("telegram-chats.json", chats);
+    });
+  }
+
+  removeChat(chatId: number): Promise<boolean> {
+    return this.serial(async () => {
+      const chats = await this.read<TelegramChat[]>("telegram-chats.json", []);
+      const kept = chats.filter((c) => c.chat_id !== chatId);
+      if (kept.length === chats.length) return false;
+      await this.write("telegram-chats.json", kept);
+      return true;
     });
   }
 }

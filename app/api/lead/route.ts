@@ -8,10 +8,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const store = getStore();
   return handleLead(request, {
-    store: getStore(),
+    store,
     // Уведомление — после ответа: человек не ждёт Telegram.
     defer: (task) => after(task),
-    notify: (lead, created) => notifyTelegram(lead, created, { adminUrl: `${siteUrl()}/admin` }),
+    notify: (lead, created) => notifyTelegram(lead, created, { store, site: siteUrl() }),
   });
 }
