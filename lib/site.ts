@@ -2,6 +2,8 @@
 
 export const BRAND = "Horsteppe";
 export const CONTACT_EMAIL = "Horsteppe@gmail.com";
+/** Telegram команды для клиентов: вопросы, подробности, связь с основателями. */
+export const CONTACT_TELEGRAM = "horsteppe";
 
 /**
  * Адрес этого сайта для канонических ссылок, карты сайта и карточек соцсетей.

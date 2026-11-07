@@ -16,7 +16,8 @@ import type { LeadStore } from "../lib/leads/store.ts";
 import type { TelegramApi } from "../lib/telegram/api.ts";
 import { handleTelegramAction, handleTelegramStatus } from "../lib/telegram/admin.ts";
 import { handleUpdate, handleWebhook, type TgUpdate } from "../lib/telegram/bot.ts";
-import { CLOSED, LINK_EXPIRED, MENU, NO_TABLE } from "../lib/telegram/format.ts";
+import { LINK_EXPIRED, MENU, NO_TABLE } from "../lib/telegram/format.ts";
+import { publicLang } from "../lib/telegram/public.ts";
 import { LINK_TTL_MS, checkLinkCode, makeLinkCode, webhookSecret } from "../lib/telegram/keys.ts";
 
 const TOKEN = "123456:ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
@@ -130,7 +131,7 @@ test("вебхук: без бота — 404, чужой секрет — 401, м
   assert.equal(res.status, 200);
   assert.equal(sentRequests.length, 0, "Telegram получает ответ до работы");
   await deferred[0]();
-  assert.equal(sentRequests.length, 1, "чужой чат получил ответ «бот закрытый»");
+  assert.equal(sentRequests.length, 1, "человек не из команды получил ответ — где заказать видео");
 });
 
 // --- подключение -----------------------------------------------------------------------
@@ -142,6 +143,9 @@ test("подключение по ссылке из админки: чат со�
   assert.match(sent(777)[0], /Готово! Этот чат подключён к заявкам Horsteppe/);
   const keyboard = calls[0].params.reply_markup as { keyboard: { text: string }[][] };
   assert.deepEqual(keyboard.keyboard.flat().map((b) => b.text), [MENU.new, MENU.all, MENU.stats, MENU.help]);
+  const menu = calls.find((c) => c.method === "setMyCommands")!;
+  assert.deepEqual(menu.params.scope, { type: "chat", chat_id: 777 }, "рабочие команды — только в этом чате");
+  assert.ok((menu.params.commands as { command: string }[]).some((c) => c.command === "stats"));
 });
 
 test("второй чат подключается — первый узнаёт об этом", async () => {
@@ -177,15 +181,24 @@ test("нет таблицы чатов — человек видит, что с�
 
 // --- закрытость ------------------------------------------------------------------------
 
-test("чужой человек не видит ни одной заявки", async () => {
+test("клиент, нашедший бота, получает ссылку на заказ и контакт команды — но не заявки", async () => {
   await seed("Айгерим Тестова");
   const { api, calls, sent } = fakeApi();
   const stranger = { id: 999, type: "private", first_name: "Кто-то" };
   for (const text of [MENU.all, "/new", "/stats", "Айгерим", "/start"]) {
-    await handleUpdate(say(text, stranger), { store, api, token: TOKEN, env: ENV, now: NOW });
+    await handleUpdate(say(text, stranger), { store, api, token: TOKEN, env: ENV, now: NOW, site: SITE });
   }
-  assert.deepEqual(sent(999), Array(5).fill(CLOSED));
-  assert.ok(!calls.some((c) => JSON.stringify(c.params).includes("Айгерим")));
+  assert.equal(sent(999).length, 5);
+  for (const text of sent(999)) {
+    assert.ok(text.includes("Видео можно заказать здесь"), text);
+    assert.ok(text.includes(`${SITE}/ru#access`));
+    assert.ok(text.includes("@horsteppe"));
+  }
+  const reply = calls.find((c) => Number(c.params.chat_id) === 999)!;
+  const buttons = (reply.params.reply_markup as { inline_keyboard: { text: string; url: string }[][] }).inline_keyboard.flat();
+  assert.deepEqual(buttons.map((b) => b.url), [`${SITE}/ru#access`, "https://t.me/horsteppe"]);
+  assert.equal(reply.params.disable_web_page_preview, false, "с карточкой сайта — логотип и описание");
+  assert.ok(!calls.some((c) => JSON.stringify(c.params).includes("Айгерим")), "ни одной заявки");
 
   const strangerGroup = { id: -5, type: "group", title: "Чужая группа" };
   await handleUpdate(say("/all", strangerGroup), { store, api, token: TOKEN, env: ENV, now: NOW });
@@ -297,8 +310,9 @@ test("/stop отключает чат и убирает кнопки", async () 
   await handleUpdate(say("/stop"), { store, api, token: TOKEN, env: ENV, now: NOW });
   assert.deepEqual(await store.listChats(), []);
   assert.deepEqual(calls.at(-1)!.params.reply_markup, { remove_keyboard: true });
-  await handleUpdate(say(MENU.all), { store, api, token: TOKEN, env: ENV, now: NOW });
-  assert.equal(calls.at(-1)!.params.text, CLOSED, "после отключения бот снова закрыт");
+  assert.deepEqual(calls.find((c) => c.method === "deleteMyCommands")?.params.scope, { type: "chat", chat_id: 777 }, "рабочее меню убрано");
+  await handleUpdate(say(MENU.all), { store, api, token: TOKEN, env: ENV, now: NOW, site: SITE });
+  assert.match(String(calls.at(-1)!.params.text), /Видео можно заказать здесь/, "после отключения — как для клиента");
 });
 
 // --- админка ----------------------------------------------------------------------------
@@ -376,7 +390,14 @@ test("админка: «Подключить» настраивает вебху
   assert.equal(hook.params.url, `${SITE}/api/telegram/webhook`);
   assert.equal(hook.params.secret_token, await webhookSecret(TOKEN));
   assert.deepEqual(hook.params.allowed_updates, ["message", "callback_query"]);
-  assert.ok(calls.some((c) => c.method === "setMyCommands"));
+  // Витрина для клиентов: в меню только /start, описание — на трёх языках.
+  const publicMenus = calls.filter((c) => c.method === "setMyCommands" && !c.params.scope);
+  assert.equal(publicMenus.length, 3);
+  for (const menu of publicMenus) assert.deepEqual((menu.params.commands as { command: string }[]).map((c) => c.command), ["start"]);
+  const descriptions = calls.filter((c) => c.method === "setMyDescription");
+  assert.deepEqual(descriptions.map((c) => c.params.language_code ?? "по умолчанию").sort(), ["en", "kk", "по умолчанию"]);
+  assert.ok(String(descriptions.find((c) => !c.params.language_code)!.params.description).includes("Запустить"));
+  assert.ok(calls.some((c) => c.method === "setMyShortDescription"));
   const code = new URL(link).searchParams.get("start")!;
   assert.match(link, /^https:\/\/t\.me\/horsteppe_test_bot\?start=/);
   assert.equal(new URL(groupLink).searchParams.get("startgroup"), code);
@@ -396,4 +417,24 @@ test("админка: «Подключить» настраивает вебху
   assert.deepEqual(unlinked, { ok: true, removed: true });
   assert.deepEqual(await store.listChats(), []);
   assert.deepEqual(calls.at(-1)!.params.reply_markup, { remove_keyboard: true });
+});
+
+test("язык ответа клиенту — из настроек его Telegram", async () => {
+  assert.equal(publicLang("kk"), "kk");
+  assert.equal(publicLang("ru"), "ru");
+  assert.equal(publicLang("uk"), "ru");
+  assert.equal(publicLang(undefined), "ru");
+  assert.equal(publicLang("en-US"), "en");
+  assert.equal(publicLang("de"), "en");
+
+  const { api, sent } = fakeApi();
+  const ask = (id: number, language_code: string) =>
+    handleUpdate(
+      { message: { message_id: 1, chat: { id, type: "private" }, from: { id, first_name: "Client", language_code }, text: "/start" } } as TgUpdate,
+      { store, api, token: TOKEN, env: ENV, now: NOW, site: SITE },
+    );
+  await ask(501, "kk");
+  await ask(502, "en");
+  assert.ok(sent(501)[0].includes(`${SITE}/kk#access`) && sent(501)[0].includes("тапсырыс"));
+  assert.ok(sent(502)[0].includes(`${SITE}/en#access`) && sent(502)[0].includes("You can order a video here"));
 });

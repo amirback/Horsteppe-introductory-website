@@ -166,7 +166,6 @@ export const HELP = [
 ].join("\n");
 
 export const WELCOME = `✅ <b>Готово! Этот чат подключён к заявкам Horsteppe.</b>\n\n${HELP.split("\n").slice(2).join("\n")}`;
-export const CLOSED = "Это закрытый бот Horsteppe для команды. Подключиться можно только по ссылке из админки сайта.";
 export const LINK_EXPIRED =
   "Ссылка для подключения устарела или неверна. Откройте админку сайта → «Telegram» → «Подключить» и нажмите новую ссылку.";
 export const NO_TABLE =

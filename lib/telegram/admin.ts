@@ -9,19 +9,10 @@ import type { LeadStore, TelegramChat } from "../leads/store.ts";
 import { sameOrigin } from "../request.ts";
 import { botToken, isTestApi, telegramApi } from "./api.ts";
 import { LINK_TTL_MS, makeLinkCode, webhookSecret } from "./keys.ts";
+import { applyPublicProfile, applyTeamCommands, clearTeamCommands } from "./public.ts";
 
 type Env = Record<string, string | undefined>;
 type Deps = { store: LeadStore | null; site: string; env?: Env; now?: Date; fetchImpl?: typeof fetch };
-
-/** Меню команд, которое Telegram показывает по кнопке «/» рядом с полем ввода. */
-export const BOT_COMMANDS = [
-  { command: "new", description: "Новые заявки — ждут ответа" },
-  { command: "all", description: "Все заявки" },
-  { command: "stats", description: "Статистика" },
-  { command: "find", description: "Найти заявку по имени, почте или компании" },
-  { command: "help", description: "Что умеет бот" },
-  { command: "stop", description: "Не присылать заявки в этот чат" },
-];
 
 async function linkedChats(store: LeadStore | null): Promise<{ chats: TelegramChat[]; tableMissing: boolean }> {
   if (!store) return { chats: [], tableMissing: false };
@@ -87,7 +78,10 @@ export async function handleTelegramAction(request: Request, deps: Deps): Promis
       drop_pending_updates: true,
     });
     if (!hook.ok) return json({ error: "telegram", detail: hook.description }, 502);
-    await api.call("setMyCommands", { commands: BOT_COMMANDS });
+    // Витрина для клиентов (описание, меню из одного /start) и рабочее меню в уже подключённых чатах.
+    await applyPublicProfile(api);
+    const { chats } = await linkedChats(deps.store).catch(() => ({ chats: [] as TelegramChat[] }));
+    await Promise.all(chats.map((c) => applyTeamCommands(api, Number(c.chat_id))));
     const me = await api.call<{ username: string }>("getMe");
     if (!me.ok) return json({ error: "telegram", detail: me.description }, 502);
     const code = await makeLinkCode(token, env, now.getTime());
@@ -119,6 +113,7 @@ export async function handleTelegramAction(request: Request, deps: Deps): Promis
     try {
       const removed = await deps.store.removeChat(chatId);
       if (removed) {
+        await clearTeamCommands(api, chatId);
         await api.call("sendMessage", {
           chat_id: chatId,
           text: "Этот чат отключили от заявок Horsteppe в админке сайта.",

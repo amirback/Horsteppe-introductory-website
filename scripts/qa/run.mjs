@@ -393,6 +393,12 @@ try {
     (await waitTg(() => sentTo(999).length > 0)) && sentTo(999).every((c) => !String(c.params.text).includes("Айгерим")),
     "Telegram: чужому человеку бот заявки не показывает",
   );
+  const forClient = String(sentTo(999)[0]?.params.text ?? "");
+  check(forClient.includes("/ru#access") && forClient.includes("@horsteppe"), "Telegram: клиенту — ссылка на заказ видео и контакт @horsteppe", forClient.slice(0, 80));
+  check(
+    tgCalls.some((c) => c.method === "setMyDescription") && tgCalls.some((c) => c.method === "setMyCommands" && c.params.scope?.chat_id === 777),
+    "Telegram: описание бота для клиентов и рабочее меню только в чате команды",
+  );
 
   // --------------------------------------------------------- админка ---
   await go(page, `${BASE}/admin`);

@@ -2,8 +2,9 @@
  * Бот заявок Horsteppe: что делать с каждым обновлением от Telegram.
  *
  * Доступ — только у чатов, подключённых по ссылке из админки (или указанного
- * в TELEGRAM_CHAT_ID). Чужому человеку бот отвечает, что он закрытый, и не
- * показывает ни одной заявки. Кнопки и команды проверяют доступ каждый раз.
+ * в TELEGRAM_CHAT_ID). Клиенту, нашедшему бота, — ссылка, где заказать видео,
+ * и контакт команды (public.ts); ни одной заявки он не видит. Кнопки и
+ * команды проверяют доступ каждый раз.
  */
 import { json, readJson } from "../api.ts";
 import { MissingTableError } from "../leads/errors.ts";
@@ -11,18 +12,20 @@ import { STATUS_LABEL } from "../leads/labels.ts";
 import { LIMITS, type Lead } from "../leads/schema.ts";
 import { UUID, type LeadStore, type TelegramChat } from "../leads/store.ts";
 import { safeEqual } from "../security.ts";
+import { siteUrl } from "../site.ts";
 import { botToken, telegramApi, type TelegramApi } from "./api.ts";
 import {
-  CLOSED, CODE_STATUS, HELP, LINK_EXPIRED, MENU, MENU_KEYBOARD, NO_TABLE, TZ, WELCOME,
+  CODE_STATUS, HELP, LINK_EXPIRED, MENU, MENU_KEYBOARD, NO_TABLE, TZ, WELCOME,
   esc, findLeads, leadCard, leadKeyboard, leadList, searchReply, statsText, type ListFilter, type Reply,
 } from "./format.ts";
 import { checkLinkCode, webhookSecret } from "./keys.ts";
+import { applyTeamCommands, clearTeamCommands, publicLang, publicReply } from "./public.ts";
 
 type Env = Record<string, string | undefined>;
 
 // Только те поля объектов Telegram, которыми бот пользуется.
 type TgChat = { id: number; type: string; title?: string; username?: string; first_name?: string; last_name?: string };
-type TgUser = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string };
+type TgUser = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string; language_code?: string };
 type TgReplied = { text?: string; reply_markup?: { inline_keyboard?: { callback_data?: string }[][] } };
 type TgMessage = { message_id: number; chat: TgChat; from?: TgUser; text?: string; reply_to_message?: TgReplied };
 type TgCallback = { id: string; from?: TgUser; data?: string; message?: { message_id: number; chat: TgChat } };
@@ -79,8 +82,12 @@ export async function handleUpdate(update: TgUpdate, deps: BotDeps): Promise<voi
   if (command === "start" && arg) return linkChat(message, arg, deps);
 
   if (!(await isAllowed(chatId, deps))) {
-    // В группах молчим: бот не отвечает на команды в чатах, куда его не подключали.
-    if (message.chat.type === "private") await send(deps, chatId, CLOSED);
+    // Клиент нашёл бота сам: где заказать видео и как связаться — с карточкой сайта.
+    // В чужих группах молчим: бот не отвечает на команды там, куда его не подключали.
+    if (message.chat.type === "private") {
+      const reply = publicReply(publicLang(message.from?.language_code), deps.site ?? siteUrl());
+      await send(deps, chatId, reply, { disable_web_page_preview: false });
+    }
     return;
   }
 
@@ -142,6 +149,8 @@ async function linkChat(message: TgMessage, code: string, deps: BotDeps): Promis
     return;
   }
   await send(deps, chatId, WELCOME, { reply_markup: MENU_KEYBOARD });
+  // Рабочие команды в меню «/» — только в этом чате; клиенты видят лишь /start.
+  await applyTeamCommands(deps.api, chatId);
   // Остальным подключённым — кто присоединился: новый получатель заявок не появится незаметно.
   const others = before.filter((c) => Number(c.chat_id) !== chatId);
   await Promise.all(others.map((c) => send(deps, Number(c.chat_id), `🔗 К заявкам подключён ещё один чат: <b>${esc(title)}</b>.`)));
@@ -155,6 +164,7 @@ async function stopChat(chatId: number, deps: BotDeps): Promise<void> {
     // ниже скажем, что делать
   }
   const fixed = (deps.env ?? process.env).TELEGRAM_CHAT_ID?.trim() === String(chatId);
+  if (removed && !fixed) await clearTeamCommands(deps.api, chatId);
   const text = fixed
     ? "Этот чат указан в настройках сайта (переменная TELEGRAM_CHAT_ID в Vercel) — отключить его можно только там."
     : removed
